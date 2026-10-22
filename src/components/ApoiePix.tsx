@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, HeartHandshake } from "lucide-react";
 
 interface ApoiePixProps {
   pixKey?: string;
@@ -20,24 +20,25 @@ export function ApoiePix({ pixKey }: ApoiePixProps) {
   };
 
   return (
-    <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
-      <div className="mb-4">
-        <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-          Apoie a Urna 2026
-        </h3>
-        <p className="text-xs text-slate-600 mt-1">
-          O site é gratuito e sem cadastro. Se quiser ajudar a manter o projeto no ar, qualquer valor ajuda.
-        </p>
+    <div className="w-full bg-gradient-to-br from-white via-emerald-50 to-amber-50 rounded-xl shadow-md border border-emerald-200 overflow-hidden mb-6">
+      <div className="bg-emerald-800 text-white px-4 py-3 sm:px-6 flex items-center gap-2.5">
+        <HeartHandshake className="w-5 h-5 text-amber-300 shrink-0" />
+        <div>
+          <h3 className="text-base sm:text-lg font-extrabold leading-tight">Apoie a Urna 2026</h3>
+          <p className="text-[11px] sm:text-xs text-emerald-100 mt-0.5">
+            Sua contribuição ajuda a manter o projeto no ar.
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-4 max-w-2xl">
+      <div className="space-y-4 p-4 sm:p-6 max-w-3xl">
         {/* Card Principal */}
-        <div className="bg-[#f0f9f8] border border-[#a2dfd9] rounded-lg p-3.5 sm:p-4">
+        <div className="bg-white/90 border-2 border-emerald-200 rounded-lg p-3.5 sm:p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <span className="bg-[#1f8c85] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+            <span className="bg-amber-400 text-amber-950 text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wide">
               PIX
             </span>
-            <span className="text-xs font-bold text-slate-800">Chave Pix de apoio</span>
+            <span className="text-sm font-extrabold text-slate-900">Doe qualquer valor pela chave Pix</span>
           </div>
 
           {/* Input com a chave Pix e botão copiar */}
