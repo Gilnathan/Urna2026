@@ -1,7 +1,5 @@
 import { CandidatoId, VotoStats, TimelineStats, HourlyData } from "@/types";
-import { put, head } from "@vercel/blob";
-
-const BLOB_FILE_NAME = "votes_state.json";
+import { sql, ensureTableExists } from "./db";
 
 function getCurrentHourSlot(): string {
   const d = new Date();
@@ -15,171 +13,86 @@ function getCurrentDateSlot(): string {
   return `${dia}/${mes}`;
 }
 
-export interface PersistentData {
-  votos22: number;
-  votos13: number;
-  brancos: number;
-  nulos: number;
-  fingerprints: string[];
-  hourly: HourlyData[];
-  last5MinVotes: number[];
-  lastUpdated: number;
-}
-
-const DEFAULT_STATE: PersistentData = {
-  votos22: 0,
-  votos13: 0,
-  brancos: 0,
-  nulos: 0,
-  fingerprints: [],
-  hourly: [
-    {
-      hora: getCurrentHourSlot(),
-      data: getCurrentDateSlot(),
-      votos22: 0,
-      votos13: 0,
-      totalHora: 0,
-    },
-  ],
-  last5MinVotes: [],
-  lastUpdated: Date.now(),
-};
-
-// In-Memory cache para evitar requisições desnecessárias
-let memoryState: PersistentData = { ...DEFAULT_STATE };
-let memoryLoaded = false;
-let blobUrl: string | null = null;
-
-async function loadState(): Promise<PersistentData> {
-  // Tenta ler do Vercel Blob se o token estiver presente
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      if (!blobUrl) {
-        const blobDetails = await head(BLOB_FILE_NAME).catch(() => null);
-        if (blobDetails?.url) {
-          blobUrl = blobDetails.url;
-        }
-      }
-
-      if (blobUrl) {
-        const res = await fetch(`${blobUrl}?t=${Date.now()}`, { cache: "no-store" });
-        if (res.ok) {
-          const remoteData: PersistentData = await res.json();
-          memoryState = remoteData;
-          memoryLoaded = true;
-          return memoryState;
-        }
-      }
-    } catch (err) {
-      console.warn("Aviso ao carregar do Vercel Blob:", err);
-    }
-  }
-
-  return memoryState;
-}
-
-async function persistState(data: PersistentData): Promise<void> {
-  memoryState = data;
-  memoryLoaded = true;
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const blob = await put(BLOB_FILE_NAME, JSON.stringify(data), {
-        access: "public",
-        addRandomSuffix: false,
-      });
-      blobUrl = blob.url;
-    } catch (err) {
-      console.error("Erro ao persistir no Vercel Blob:", err);
-    }
-  }
-}
-
 export async function hasFingerprintVoted(fp: string): Promise<boolean> {
   if (!fp || fp.length < 5) return false;
-  const state = await loadState();
-  return state.fingerprints.includes(fp);
+  await ensureTableExists();
+
+  const rows = await sql`
+    SELECT id FROM votos WHERE fingerprint = ${fp} LIMIT 1;
+  `;
+
+  return rows.length > 0;
 }
 
 export async function registerVote(
   voto: CandidatoId,
   fp: string
 ): Promise<{ success: boolean; duplicate?: boolean }> {
-  const state = await loadState();
+  await ensureTableExists();
 
-  // Verifica duplicidade
-  if (state.fingerprints.includes(fp)) {
-    return { success: false, duplicate: true };
+  try {
+    // Inserção atômica com trava de unicidade no PostgreSQL
+    const inserted = await sql`
+      INSERT INTO votos (candidato, fingerprint)
+      VALUES (${voto}, ${fp})
+      ON CONFLICT (fingerprint) DO NOTHING
+      RETURNING id;
+    `;
+
+    if (inserted.length === 0) {
+      return { success: false, duplicate: true };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      // Unique violation
+      return { success: false, duplicate: true };
+    }
+    console.error("Erro ao inserir voto no Neon Postgres:", err);
+    throw err;
   }
-
-  // Incrementa contagem
-  if (voto === "22") state.votos22 += 1;
-  else if (voto === "13") state.votos13 += 1;
-  else if (voto === "BRANCO") state.brancos += 1;
-  else if (voto === "NULO") state.nulos += 1;
-
-  state.fingerprints.push(fp);
-
-  // Janela móvel de votos nos últimos 5 min
-  const now = Date.now();
-  state.last5MinVotes.push(now);
-  const fiveMinAgo = now - 5 * 60 * 1000;
-  state.last5MinVotes = state.last5MinVotes.filter((t) => t >= fiveMinAgo);
-
-  // Registro de linha do tempo por hora
-  const currentHora = getCurrentHourSlot();
-  const currentData = getCurrentDateSlot();
-  let hourSlot = state.hourly.find((h) => h.hora === currentHora && h.data === currentData);
-
-  if (!hourSlot) {
-    hourSlot = {
-      hora: currentHora,
-      data: currentData,
-      votos22: 0,
-      votos13: 0,
-      totalHora: 0,
-    };
-    state.hourly.push(hourSlot);
-  }
-
-  if (voto === "22") hourSlot.votos22 += 1;
-  if (voto === "13") hourSlot.votos13 += 1;
-  hourSlot.totalHora += 1;
-
-  state.lastUpdated = now;
-
-  // Salva no Vercel Blob
-  await persistState(state);
-
-  return { success: true };
 }
 
 export async function getStats(): Promise<VotoStats> {
-  const state = await loadState();
+  await ensureTableExists();
 
-  // Limpa janela de 5 min
-  const now = Date.now();
-  const fiveMinAgo = now - 5 * 60 * 1000;
-  const ultimos5min = state.last5MinVotes.filter((t) => t >= fiveMinAgo).length;
+  const rows = await sql`
+    SELECT 
+      COALESCE(COUNT(*) FILTER (WHERE candidato = '22'), 0)::int AS v22,
+      COALESCE(COUNT(*) FILTER (WHERE candidato = '13'), 0)::int AS v13,
+      COALESCE(COUNT(*) FILTER (WHERE candidato = 'BRANCO'), 0)::int AS brancos,
+      COALESCE(COUNT(*) FILTER (WHERE candidato = 'NULO'), 0)::int AS nulos,
+      COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '5 minutes'), 0)::int AS ultimos5min,
+      COALESCE(COUNT(*), 0)::int AS total
+    FROM votos;
+  `;
 
-  const validos = state.votos22 + state.votos13;
-  const total = validos + state.brancos + state.nulos;
+  const row = rows[0] || { v22: 0, v13: 0, brancos: 0, nulos: 0, ultimos5min: 0, total: 0 };
+  const v22 = Number(row.v22 || 0);
+  const v13 = Number(row.v13 || 0);
+  const brancos = Number(row.brancos || 0);
+  const nulos = Number(row.nulos || 0);
+  const ultimos5min = Number(row.ultimos5min || 0);
+  const total = Number(row.total || 0);
 
-  const pct22Validos = validos > 0 ? (state.votos22 / validos) * 100 : 0;
-  const pct13Validos = validos > 0 ? (state.votos13 / validos) * 100 : 0;
+  const validos = v22 + v13;
 
-  const pct22Total = total > 0 ? (state.votos22 / total) * 100 : 0;
-  const pct13Total = total > 0 ? (state.votos13 / total) * 100 : 0;
-  const pctBrancosTotal = total > 0 ? (state.brancos / total) * 100 : 0;
-  const pctNulosTotal = total > 0 ? (state.nulos / total) * 100 : 0;
+  const pct22Validos = validos > 0 ? (v22 / validos) * 100 : 0;
+  const pct13Validos = validos > 0 ? (v13 / validos) * 100 : 0;
+
+  const pct22Total = total > 0 ? (v22 / total) * 100 : 0;
+  const pct13Total = total > 0 ? (v13 / total) * 100 : 0;
+  const pctBrancosTotal = total > 0 ? (brancos / total) * 100 : 0;
+  const pctNulosTotal = total > 0 ? (nulos / total) * 100 : 0;
 
   return {
     total,
     validos,
-    candidato22: state.votos22,
-    candidato13: state.votos13,
-    brancos: state.brancos,
-    nulos: state.nulos,
+    candidato22: v22,
+    candidato13: v13,
+    brancos,
+    nulos,
     ultimos5min,
     pct22Validos: Number(pct22Validos.toFixed(1)),
     pct13Validos: Number(pct13Validos.toFixed(1)),
@@ -187,13 +100,44 @@ export async function getStats(): Promise<VotoStats> {
     pct13Total: Number(pct13Total.toFixed(1)),
     pctBrancosTotal: Number(pctBrancosTotal.toFixed(1)),
     pctNulosTotal: Number(pctNulosTotal.toFixed(1)),
-    timestamp: now,
+    timestamp: Date.now(),
   };
 }
 
 export async function getTimelineStats(): Promise<TimelineStats> {
-  const state = await loadState();
-  const horas = state.hourly;
+  await ensureTableExists();
+
+  const rows = await sql`
+    SELECT 
+      TO_CHAR(created_at, 'HH24"h"') AS hora,
+      TO_CHAR(created_at, 'DD/MM') AS data,
+      COALESCE(COUNT(*) FILTER (WHERE candidato = '22'), 0)::int AS votos22,
+      COALESCE(COUNT(*) FILTER (WHERE candidato = '13'), 0)::int AS votos13,
+      COUNT(*)::int AS total_hora
+    FROM votos
+    GROUP BY TO_CHAR(created_at, 'DD/MM'), TO_CHAR(created_at, 'HH24"h"')
+    ORDER BY MIN(created_at) ASC;
+  `;
+
+  let horas: HourlyData[] = rows.map((r) => ({
+    hora: r.hora,
+    data: r.data,
+    votos22: Number(r.votos22 || 0),
+    votos13: Number(r.votos13 || 0),
+    totalHora: Number(r.total_hora || 0),
+  }));
+
+  if (horas.length === 0) {
+    horas = [
+      {
+        hora: getCurrentHourSlot(),
+        data: getCurrentDateSlot(),
+        votos22: 0,
+        votos13: 0,
+        totalHora: 0,
+      },
+    ];
+  }
 
   let vitorias22 = 0;
   let vitorias13 = 0;
@@ -228,7 +172,7 @@ export async function getTimelineStats(): Promise<TimelineStats> {
   };
 }
 
-// Função de reset oficial se necessário
 export async function resetDatabase(): Promise<void> {
-  await persistState({ ...DEFAULT_STATE, lastUpdated: Date.now() });
+  await ensureTableExists();
+  await sql`TRUNCATE TABLE votos RESTART IDENTITY;`;
 }
