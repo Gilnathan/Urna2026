@@ -1,6 +1,6 @@
 import { getStats, getTimelineStats } from "@/lib/storage";
 import { UrnaApp } from "@/components/UrnaApp";
-import { PIX_CHAVE_CNPJ } from "@/components/ApoiePix";
+import { SITE_URL } from "@/components/ApoiePix";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function Page() {
     getTimelineStats(),
   ]);
 
-  const pixKey = process.env.NEXT_PUBLIC_PIX_KEY || PIX_CHAVE_CNPJ;
+  const pixKey = process.env.NEXT_PUBLIC_PIX_KEY || SITE_URL;
 
   return (
     <UrnaApp
