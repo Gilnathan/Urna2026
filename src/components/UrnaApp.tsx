@@ -54,7 +54,7 @@ export function UrnaApp({ initialStats, initialTimeline, siteUrl, pixKey }: Urna
   return (
     <div className="flex-1 flex flex-col justify-between">
       <div>
-        <Header siteUrl={siteUrl} />
+        <Header siteUrl={siteUrl} pixKey={pixKey} />
 
         <main className="max-w-4xl mx-auto px-3 sm:px-6 py-5">
           {/* 1. Placar Ao Vivo (Header de Apuração) */}

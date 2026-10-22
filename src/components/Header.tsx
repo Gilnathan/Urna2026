@@ -5,10 +5,12 @@ import { Copy, Check, Share2 } from "lucide-react";
 
 interface HeaderProps {
   siteUrl: string;
+  pixKey: string;
 }
 
-export function Header({ siteUrl }: HeaderProps) {
-  const [copied, setCopied] = useState(false);
+export function Header({ siteUrl, pixKey }: HeaderProps) {
+  const [copiedPix, setCopiedPix] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Contadores regressivos reais
   const [countdown25, setCountdown25] = useState({ dias: 2, horas: 21, min: 32, seg: 37 });
@@ -42,10 +44,16 @@ export function Header({ siteUrl }: HeaderProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(siteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  const handleCopyPix = async () => {
+    await navigator.clipboard.writeText(pixKey);
+    setCopiedPix(true);
+    setTimeout(() => setCopiedPix(false), 2500);
+  };
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(siteUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
   };
 
   return (
@@ -157,41 +165,42 @@ export function Header({ siteUrl }: HeaderProps) {
         </div>
       </div>
 
-      {/* Faixa Superior com Link do Site */}
-      <div className="bg-[#e8f4fd] border-b border-[#c8e2f8] py-2 px-3 sm:px-6 text-slate-700">
-        <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="bg-[#24a0ed] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
-              <Share2 className="w-3 h-3" />
-              COMPARTILHE
+      {/* Faixa de apoio Pix */}
+      <div className="bg-gradient-to-r from-amber-100 via-yellow-50 to-emerald-50 border-b border-amber-200 py-3 px-3 sm:px-6 text-slate-800">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <span className="bg-emerald-700 text-white text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wide shadow-sm">
+              Apoie via Pix
             </span>
-            <span>Compartilhe o site oficial da simulação</span>
+            <span className="text-xs sm:text-sm font-semibold">Ajude a manter o projeto no ar</span>
           </div>
 
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
               readOnly
-              value={siteUrl}
-              className="bg-white border border-slate-300 rounded px-2.5 py-1 text-slate-700 font-mono text-[11px] w-full sm:w-64 select-all focus:outline-none"
+              aria-label="Chave Pix para apoio"
+              value={pixKey}
+              className="bg-white/90 border border-amber-300 rounded-md px-2.5 py-2 text-slate-800 font-mono text-[11px] sm:w-64 flex-1 sm:flex-none select-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
-              onClick={handleCopy}
-              className="bg-[#1f8c85] hover:bg-[#16706a] text-white px-3 py-1 rounded font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
+              type="button"
+              onClick={handleCopyPix}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 rounded-md font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
             >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Link copiado!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar link</span>
-                </>
-              )}
+              {copiedPix ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedPix ? "Pix copiado!" : "Copiar Pix"}</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="self-start sm:self-auto text-[11px] font-semibold text-emerald-900 hover:text-emerald-700 flex items-center gap-1 sm:ml-1"
+          >
+            {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copiedLink ? "Link copiado!" : "Copiar link do site"}
+          </button>
         </div>
       </div>
     </header>
