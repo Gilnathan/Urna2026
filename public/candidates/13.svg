@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg13" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="suit13" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#172554" />
+    </linearGradient>
+    <linearGradient id="skin13" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fed7aa" />
+      <stop offset="100%" stop-color="#fba876" />
+    </linearGradient>
+    <linearGradient id="hatGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="200" height="240" fill="url(#bg13)" />
+  <!-- Blue Suit -->
+  <path d="M 20 240 L 45 160 L 75 165 L 100 200 L 125 165 L 155 160 L 180 240 Z" fill="url(#suit13)" />
+  <!-- White Shirt -->
+  <polygon points="75,165 125,165 110,215 90,215" fill="#ffffff" />
+  <!-- Tie (light blue or red) -->
+  <polygon points="96,168 104,168 106,240 94,240" fill="#dc2626" />
+  <!-- Neck -->
+  <rect x="85" y="130" width="30" height="38" fill="url(#skin13)" rx="4" />
+  <!-- Head -->
+  <ellipse cx="100" cy="110" rx="38" ry="44" fill="url(#skin13)" />
+  <!-- White beard -->
+  <path d="M 68 105 C 65 138 75 160 100 162 C 125 160 135 138 132 105 C 120 120 80 120 68 105 Z" fill="#e2e8f0" />
+  <path d="M 76 112 C 75 140 85 156 100 156 C 115 156 125 140 124 112 C 115 124 85 124 76 112 Z" fill="#cbd5e1" opacity="0.6" />
+  <!-- Moustache -->
+  <path d="M 85 125 Q 100 132 115 125 Q 100 122 85 125 Z" fill="#e2e8f0" />
+  <!-- Eyes -->
+  <ellipse cx="85" cy="104" rx="3.5" ry="2.2" fill="#334155" />
+  <ellipse cx="115" cy="104" rx="3.5" ry="2.2" fill="#334155" />
+  <!-- Glasses -->
+  <rect x="76" y="96" width="18" height="15" rx="3" stroke="#475569" stroke-width="2" fill="none" opacity="0.8" />
+  <rect x="106" y="96" width="18" height="15" rx="3" stroke="#475569" stroke-width="2" fill="none" opacity="0.8" />
+  <line x1="94" y1="102" x2="106" y2="102" stroke="#475569" stroke-width="2" />
+  <!-- Straw Hat (Panama hat / Chapéu de Palha) -->
+  <ellipse cx="100" cy="80" rx="66" ry="14" fill="#d97706" />
+  <ellipse cx="100" cy="79" rx="64" ry="12" fill="url(#hatGrad)" />
+  <!-- Hat Crown -->
+  <path d="M 65 78 C 64 50 75 42 100 42 C 125 42 136 50 135 78 Z" fill="url(#hatGrad)" />
+  <!-- Hat Band (Dark band) -->
+  <path d="M 66 75 C 75 73 125 73 134 75 L 135 79 C 125 77 75 77 65 79 Z" fill="#1e293b" />
+</svg>
