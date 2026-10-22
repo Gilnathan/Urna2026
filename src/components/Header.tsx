@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Copy, Check, QrCode } from "lucide-react";
+import { Copy, Check, Share2 } from "lucide-react";
 
 interface HeaderProps {
   pixKey: string;
-  onOpenQrModal?: () => void;
 }
 
-export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
+export function Header({ pixKey }: HeaderProps) {
   const [copied, setCopied] = useState(false);
 
   // Contadores regressivos reais
@@ -16,7 +15,6 @@ export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
   const [countdown23, setCountdown23] = useState({ dias: 1, horas: 10, min: 52, seg: 37 });
 
   useEffect(() => {
-    // Alvos para simulação de datas de 2026
     const target25 = new Date("2026-10-25T08:00:00-03:00").getTime();
     const target23 = new Date("2026-10-23T21:30:00-03:00").getTime();
 
@@ -44,7 +42,7 @@ export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCopyPix = () => {
+  const handleCopy = () => {
     navigator.clipboard.writeText(pixKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -57,11 +55,8 @@ export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
         {/* Bandeira estilizada ao fundo à direita */}
         <div className="absolute -top-10 -right-10 pointer-events-none opacity-90 select-none">
           <svg width="220" height="160" viewBox="0 0 220 160" fill="none">
-            {/* Losango Amarelo */}
             <polygon points="110,10 210,80 110,150 10,80" fill="#ffd100" />
-            {/* Círculo Azul */}
             <circle cx="110" cy="80" r="42" fill="#002776" />
-            {/* Faixa branca sutil */}
             <path
               d="M 75 75 Q 110 65 145 83"
               stroke="#ffffff"
@@ -162,14 +157,15 @@ export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
         </div>
       </div>
 
-      {/* Faixa Superior de Apoio Pix */}
+      {/* Faixa Superior com Link do Site */}
       <div className="bg-[#e8f4fd] border-b border-[#c8e2f8] py-2 px-3 sm:px-6 text-slate-700">
         <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 font-medium">
-            <span className="bg-[#24a0ed] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
-              PIX
+            <span className="bg-[#24a0ed] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+              <Share2 className="w-3 h-3" />
+              COMPARTILHE
             </span>
-            <span>Ajude a manter o site online - doe qualquer valor por Pix</span>
+            <span>Compartilhe o site oficial da simulação</span>
           </div>
 
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
@@ -177,32 +173,24 @@ export function Header({ pixKey, onOpenQrModal }: HeaderProps) {
               type="text"
               readOnly
               value={pixKey}
-              className="bg-white border border-slate-300 rounded px-2 py-1 text-slate-600 font-mono text-[11px] w-full sm:w-56 select-all focus:outline-none"
+              className="bg-white border border-slate-300 rounded px-2.5 py-1 text-slate-700 font-mono text-[11px] w-full sm:w-64 select-all focus:outline-none"
             />
             <button
-              onClick={handleCopyPix}
-              className="bg-[#1f8c85] hover:bg-[#16706a] text-white px-2.5 py-1 rounded font-medium text-xs flex items-center gap-1 shrink-0 transition-colors"
+              onClick={handleCopy}
+              className="bg-[#1f8c85] hover:bg-[#16706a] text-white px-3 py-1 rounded font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
             >
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>Copiado!</span>
+                  <span>Link copiado!</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar chave</span>
+                  <span>Copiar link</span>
                 </>
               )}
             </button>
-            {onOpenQrModal && (
-              <button
-                onClick={onOpenQrModal}
-                className="text-[#1f8c85] hover:underline text-xs font-semibold shrink-0 ml-1"
-              >
-                Ver QR code
-              </button>
-            )}
           </div>
         </div>
       </div>
