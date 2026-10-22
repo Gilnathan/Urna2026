@@ -1,18 +1,11 @@
 import { CandidatoId, VotoStats, TimelineStats, HourlyData } from "@/types";
+import { put, head } from "@vercel/blob";
 
-// Início oficial: contagens zeradas
-const INITIAL_STATS = {
-  candidato22: 0,
-  candidato13: 0,
-  brancos: 0,
-  nulos: 0,
-  ultimos5min: 0,
-};
+const BLOB_FILE_NAME = "votes_state.json";
 
 function getCurrentHourSlot(): string {
   const d = new Date();
-  const hora = String(d.getHours()).padStart(2, "0") + "h";
-  return hora;
+  return String(d.getHours()).padStart(2, "0") + "h";
 }
 
 function getCurrentDateSlot(): string {
@@ -22,180 +15,172 @@ function getCurrentDateSlot(): string {
   return `${dia}/${mes}`;
 }
 
-// In-Memory store serverless com custo ZERO
-interface GlobalStore {
+export interface PersistentData {
   votos22: number;
   votos13: number;
   brancos: number;
   nulos: number;
-  ultimos5min: number;
-  fingerprints: Set<string>;
-  hourlyMap: Map<string, { votos22: number; votos13: number; totalHora: number; hora: string; data: string }>;
+  fingerprints: string[];
+  hourly: HourlyData[];
   last5MinVotes: number[];
+  lastUpdated: number;
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __URNA_STORE__: GlobalStore | undefined;
-}
-
-if (!globalThis.__URNA_STORE__) {
-  const initialMap = new Map<string, { votos22: number; votos13: number; totalHora: number; hora: string; data: string }>();
-  const currentKey = `${getCurrentDateSlot()} - ${getCurrentHourSlot()}`;
-  initialMap.set(currentKey, {
-    hora: getCurrentHourSlot(),
-    data: getCurrentDateSlot(),
-    votos22: 0,
-    votos13: 0,
-    totalHora: 0,
-  });
-
-  globalThis.__URNA_STORE__ = {
-    votos22: INITIAL_STATS.candidato22,
-    votos13: INITIAL_STATS.candidato13,
-    brancos: INITIAL_STATS.brancos,
-    nulos: INITIAL_STATS.nulos,
-    ultimos5min: INITIAL_STATS.ultimos5min,
-    fingerprints: new Set<string>(),
-    hourlyMap: initialMap,
-    last5MinVotes: [],
-  };
-}
-
-const store = globalThis.__URNA_STORE__;
-
-const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-
-async function executeKv(command: string[]): Promise<any> {
-  if (!KV_URL || !KV_TOKEN) return null;
-  try {
-    const res = await fetch(`${KV_URL}/${command.join("/")}`, {
-      headers: {
-        Authorization: `Bearer ${KV_TOKEN}`,
-      },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.result;
-  } catch (err) {
-    console.error("KV Error:", err);
-    return null;
-  }
-}
-
-export async function hasFingerprintVoted(fp: string): Promise<boolean> {
-  if (!fp || fp.length < 5) return false;
-
-  if (KV_URL && KV_TOKEN) {
-    const isMember = await executeKv(["SISMEMBER", "urna:fps", encodeURIComponent(fp)]);
-    if (isMember === 1) return true;
-  }
-
-  return store.fingerprints.has(fp);
-}
-
-export async function registerVote(voto: CandidatoId, fp: string): Promise<{ success: boolean; duplicate?: boolean }> {
-  // Verificar duplicidade
-  const already = await hasFingerprintVoted(fp);
-  if (already) {
-    return { success: false, duplicate: true };
-  }
-
-  // Registrar em KV gratuito da Vercel se configurado
-  if (KV_URL && KV_TOKEN) {
-    const added = await executeKv(["SADD", "urna:fps", encodeURIComponent(fp)]);
-    if (added === 0) {
-      return { success: false, duplicate: true };
-    }
-
-    if (voto === "22") await executeKv(["INCRBY", "urna:votos:22", "1"]);
-    else if (voto === "13") await executeKv(["INCRBY", "urna:votos:13", "1"]);
-    else if (voto === "BRANCO") await executeKv(["INCRBY", "urna:votos:branco", "1"]);
-    else if (voto === "NULO") await executeKv(["INCRBY", "urna:votos:nulo", "1"]);
-  }
-
-  // Atualiza Store em memória
-  store.fingerprints.add(fp);
-  if (voto === "22") store.votos22 += 1;
-  else if (voto === "13") store.votos13 += 1;
-  else if (voto === "BRANCO") store.brancos += 1;
-  else if (voto === "NULO") store.nulos += 1;
-
-  // Atualiza janela móvel de votos nos últimos 5 min
-  const now = Date.now();
-  store.last5MinVotes.push(now);
-  const fiveMinAgo = now - 5 * 60 * 1000;
-  store.last5MinVotes = store.last5MinVotes.filter((t) => t >= fiveMinAgo);
-  store.ultimos5min = store.last5MinVotes.length;
-
-  // Atualiza bucket por hora
-  const hourKey = `${getCurrentDateSlot()} - ${getCurrentHourSlot()}`;
-  let bucket = store.hourlyMap.get(hourKey);
-  if (!bucket) {
-    bucket = {
+const DEFAULT_STATE: PersistentData = {
+  votos22: 0,
+  votos13: 0,
+  brancos: 0,
+  nulos: 0,
+  fingerprints: [],
+  hourly: [
+    {
       hora: getCurrentHourSlot(),
       data: getCurrentDateSlot(),
       votos22: 0,
       votos13: 0,
       totalHora: 0,
-    };
-    store.hourlyMap.set(hourKey, bucket);
+    },
+  ],
+  last5MinVotes: [],
+  lastUpdated: Date.now(),
+};
+
+// In-Memory cache para evitar requisições desnecessárias
+let memoryState: PersistentData = { ...DEFAULT_STATE };
+let memoryLoaded = false;
+let blobUrl: string | null = null;
+
+async function loadState(): Promise<PersistentData> {
+  // Tenta ler do Vercel Blob se o token estiver presente
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      if (!blobUrl) {
+        const blobDetails = await head(BLOB_FILE_NAME).catch(() => null);
+        if (blobDetails?.url) {
+          blobUrl = blobDetails.url;
+        }
+      }
+
+      if (blobUrl) {
+        const res = await fetch(`${blobUrl}?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) {
+          const remoteData: PersistentData = await res.json();
+          memoryState = remoteData;
+          memoryLoaded = true;
+          return memoryState;
+        }
+      }
+    } catch (err) {
+      console.warn("Aviso ao carregar do Vercel Blob:", err);
+    }
   }
 
-  if (voto === "22") bucket.votos22 += 1;
-  if (voto === "13") bucket.votos13 += 1;
-  bucket.totalHora += 1;
+  return memoryState;
+}
+
+async function persistState(data: PersistentData): Promise<void> {
+  memoryState = data;
+  memoryLoaded = true;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const blob = await put(BLOB_FILE_NAME, JSON.stringify(data), {
+        access: "public",
+        addRandomSuffix: false,
+      });
+      blobUrl = blob.url;
+    } catch (err) {
+      console.error("Erro ao persistir no Vercel Blob:", err);
+    }
+  }
+}
+
+export async function hasFingerprintVoted(fp: string): Promise<boolean> {
+  if (!fp || fp.length < 5) return false;
+  const state = await loadState();
+  return state.fingerprints.includes(fp);
+}
+
+export async function registerVote(
+  voto: CandidatoId,
+  fp: string
+): Promise<{ success: boolean; duplicate?: boolean }> {
+  const state = await loadState();
+
+  // Verifica duplicidade
+  if (state.fingerprints.includes(fp)) {
+    return { success: false, duplicate: true };
+  }
+
+  // Incrementa contagem
+  if (voto === "22") state.votos22 += 1;
+  else if (voto === "13") state.votos13 += 1;
+  else if (voto === "BRANCO") state.brancos += 1;
+  else if (voto === "NULO") state.nulos += 1;
+
+  state.fingerprints.push(fp);
+
+  // Janela móvel de votos nos últimos 5 min
+  const now = Date.now();
+  state.last5MinVotes.push(now);
+  const fiveMinAgo = now - 5 * 60 * 1000;
+  state.last5MinVotes = state.last5MinVotes.filter((t) => t >= fiveMinAgo);
+
+  // Registro de linha do tempo por hora
+  const currentHora = getCurrentHourSlot();
+  const currentData = getCurrentDateSlot();
+  let hourSlot = state.hourly.find((h) => h.hora === currentHora && h.data === currentData);
+
+  if (!hourSlot) {
+    hourSlot = {
+      hora: currentHora,
+      data: currentData,
+      votos22: 0,
+      votos13: 0,
+      totalHora: 0,
+    };
+    state.hourly.push(hourSlot);
+  }
+
+  if (voto === "22") hourSlot.votos22 += 1;
+  if (voto === "13") hourSlot.votos13 += 1;
+  hourSlot.totalHora += 1;
+
+  state.lastUpdated = now;
+
+  // Salva no Vercel Blob
+  await persistState(state);
 
   return { success: true };
 }
 
 export async function getStats(): Promise<VotoStats> {
-  let v22 = store.votos22;
-  let v13 = store.votos13;
-  let br = store.brancos;
-  let nu = store.nulos;
+  const state = await loadState();
 
-  if (KV_URL && KV_TOKEN) {
-    const [kv22, kv13, kvBr, kvNu] = await Promise.all([
-      executeKv(["GET", "urna:votos:22"]),
-      executeKv(["GET", "urna:votos:13"]),
-      executeKv(["GET", "urna:votos:branco"]),
-      executeKv(["GET", "urna:votos:nulo"]),
-    ]);
-
-    if (kv22 !== null) v22 = parseInt(kv22 || "0", 10);
-    if (kv13 !== null) v13 = parseInt(kv13 || "0", 10);
-    if (kvBr !== null) br = parseInt(kvBr || "0", 10);
-    if (kvNu !== null) nu = parseInt(kvNu || "0", 10);
-  }
-
-  // Limpa janela dos 5 min
+  // Limpa janela de 5 min
   const now = Date.now();
   const fiveMinAgo = now - 5 * 60 * 1000;
-  store.last5MinVotes = store.last5MinVotes.filter((t) => t >= fiveMinAgo);
-  store.ultimos5min = store.last5MinVotes.length;
+  const ultimos5min = state.last5MinVotes.filter((t) => t >= fiveMinAgo).length;
 
-  const validos = v22 + v13;
-  const total = validos + br + nu;
+  const validos = state.votos22 + state.votos13;
+  const total = validos + state.brancos + state.nulos;
 
-  const pct22Validos = validos > 0 ? (v22 / validos) * 100 : 0;
-  const pct13Validos = validos > 0 ? (v13 / validos) * 100 : 0;
+  const pct22Validos = validos > 0 ? (state.votos22 / validos) * 100 : 0;
+  const pct13Validos = validos > 0 ? (state.votos13 / validos) * 100 : 0;
 
-  const pct22Total = total > 0 ? (v22 / total) * 100 : 0;
-  const pct13Total = total > 0 ? (v13 / total) * 100 : 0;
-  const pctBrancosTotal = total > 0 ? (br / total) * 100 : 0;
-  const pctNulosTotal = total > 0 ? (nu / total) * 100 : 0;
+  const pct22Total = total > 0 ? (state.votos22 / total) * 100 : 0;
+  const pct13Total = total > 0 ? (state.votos13 / total) * 100 : 0;
+  const pctBrancosTotal = total > 0 ? (state.brancos / total) * 100 : 0;
+  const pctNulosTotal = total > 0 ? (state.nulos / total) * 100 : 0;
 
   return {
     total,
     validos,
-    candidato22: v22,
-    candidato13: v13,
-    brancos: br,
-    nulos: nu,
-    ultimos5min: store.ultimos5min,
+    candidato22: state.votos22,
+    candidato13: state.votos13,
+    brancos: state.brancos,
+    nulos: state.nulos,
+    ultimos5min,
     pct22Validos: Number(pct22Validos.toFixed(1)),
     pct13Validos: Number(pct13Validos.toFixed(1)),
     pct22Total: Number(pct22Total.toFixed(1)),
@@ -207,13 +192,14 @@ export async function getStats(): Promise<VotoStats> {
 }
 
 export async function getTimelineStats(): Promise<TimelineStats> {
-  const horas: HourlyData[] = Array.from(store.hourlyMap.values());
+  const state = await loadState();
+  const horas = state.hourly;
+
   let vitorias22 = 0;
   let vitorias13 = 0;
-
-  let max22 = { votos: 0, periodo: "Nenhum voto ainda" };
-  let max13 = { votos: 0, periodo: "Nenhum voto ainda" };
-  let maxHora = { votos: 0, periodo: "Nenhum voto ainda" };
+  let max22 = { votos: 0, periodo: "Aguardando votos" };
+  let max13 = { votos: 0, periodo: "Aguardando votos" };
+  let maxHora = { votos: 0, periodo: "Aguardando votos" };
 
   horas.forEach((h) => {
     if (h.votos22 > max22.votos) {
@@ -240,4 +226,9 @@ export async function getTimelineStats(): Promise<TimelineStats> {
     horasVencidas13: vitorias13,
     historicoHoras: horas,
   };
+}
+
+// Função de reset oficial se necessário
+export async function resetDatabase(): Promise<void> {
+  await persistState({ ...DEFAULT_STATE, lastUpdated: Date.now() });
 }

@@ -24,14 +24,22 @@ export function UrnaApp({ initialStats, initialTimeline, pixKey }: UrnaAppProps)
   const [showQrModal, setShowQrModal] = useState(false);
   const [copiedModal, setCopiedModal] = useState(false);
 
-  // Polling automático a cada 20 segundos
+  // Polling automático sem cache a cada 10 segundos
   useEffect(() => {
     const fetchLatest = async () => {
       try {
-        const res = await fetch("/api/stats");
+        const res = await fetch(`/api/stats?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data.stats) setStats(data.stats);
+          if (data.stats) {
+            setStats((prev) => {
+              // Garante que não retroceda em caso de latência
+              if (data.stats.total >= prev.total) {
+                return data.stats;
+              }
+              return prev;
+            });
+          }
           if (data.timeline) setTimeline(data.timeline);
         }
       } catch (err) {
@@ -39,7 +47,7 @@ export function UrnaApp({ initialStats, initialTimeline, pixKey }: UrnaAppProps)
       }
     };
 
-    const interval = setInterval(fetchLatest, 20000);
+    const interval = setInterval(fetchLatest, 10000);
     return () => clearInterval(interval);
   }, []);
 

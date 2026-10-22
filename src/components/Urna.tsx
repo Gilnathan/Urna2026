@@ -27,6 +27,23 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
     }
   }, []);
 
+  const clearLocalVote = () => {
+    try {
+      localStorage.removeItem("urna_2026_voted");
+      localStorage.removeItem("urna_2026_voto_escolha");
+      localStorage.removeItem("urna_2026_voto_data");
+      localStorage.removeItem("urna_2026_fp");
+      document.cookie = "urna_voted_token=; path=/; max-age=0";
+      setHasAlreadyVoted(false);
+      setUrnaPhase("IDLE");
+      setDigits("");
+      setIsBranco(false);
+      setNoticeMessage(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Candidato ativo com base nos dígitos
   const candidatoAtivo = digits.length === 2 ? CANDIDATOS[digits] : null;
   const isVotoNulo = digits.length === 2 && !candidatoAtivo;
@@ -72,7 +89,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
   const handleConfirma = useCallback(async () => {
     if (urnaPhase !== "IDLE" || isSubmitting || hasAlreadyVoted) return;
 
-    // Determina o tipo de voto
     let votoTipo: CandidatoId | null = null;
     if (isBranco) {
       votoTipo = "BRANCO";
@@ -85,7 +101,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
     }
 
     if (!votoTipo) {
-      // Voto incompleto
       playCorrigeBeep();
       return;
     }
@@ -99,6 +114,7 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
       const response = await fetch("/api/voto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ voto: votoTipo, fingerprint }),
       });
 
@@ -118,7 +134,7 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
       recordLocalVote(votoTipo, fingerprint);
       setHasAlreadyVoted(true);
 
-      // Efeito de confete com as cores do Brasil
+      // Efeito de confete
       confetti({
         particleCount: 80,
         spread: 60,
@@ -130,11 +146,10 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
         onVoteCompleted(data.stats);
       }
     } catch (err) {
-      console.error("Erro ao votar:", err);
-      // Fallback em caso de offline
+      console.error("Erro ao registrar voto:", err);
       playUrnaConfirmationSound();
       setUrnaPhase("FIM");
-      recordLocalVote(votoTipo, "local_fallback");
+      recordLocalVote(votoTipo, "fallback_fp");
       setHasAlreadyVoted(true);
     } finally {
       setIsSubmitting(false);
@@ -169,19 +184,33 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
     <div className="w-full mb-8">
       {/* Alerta caso o usuário já tenha votado */}
       {hasAlreadyVoted && urnaPhase !== "FIM" && (
-        <div className="mb-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-xs sm:text-sm flex items-center justify-between shadow-sm">
+        <div className="mb-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="text-base">✅</span>
             <span>
               <strong>Voto já computado neste dispositivo!</strong> Para manter a precisão da simulação, votos repetidos são bloqueados.
             </span>
           </div>
+          <button
+            type="button"
+            onClick={clearLocalVote}
+            className="text-[11px] bg-amber-200/70 hover:bg-amber-300 text-amber-950 px-2 py-1 rounded font-bold transition-colors"
+          >
+            Liberar para novo teste
+          </button>
         </div>
       )}
 
       {noticeMessage && (
-        <div className="mb-4 bg-red-50 border border-red-300 text-red-800 rounded-lg p-3 text-xs sm:text-sm">
-          {noticeMessage}
+        <div className="mb-4 bg-red-50 border border-red-300 text-red-800 rounded-lg p-3 text-xs sm:text-sm flex items-center justify-between">
+          <span>{noticeMessage}</span>
+          <button
+            type="button"
+            onClick={clearLocalVote}
+            className="text-xs font-bold underline ml-2"
+          >
+            Limpar trava
+          </button>
         </div>
       )}
 
@@ -327,7 +356,7 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
                             src={candidatoAtivo.foto}
                             alt={candidatoAtivo.nome}
                             fill
-                            className="object-cover"
+                            className="object-cover object-top"
                           />
                           <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 text-[8px] font-bold text-white text-center py-0.5">
                             Presidente
@@ -379,7 +408,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
                   className="relative h-10 sm:h-11 bg-gradient-to-b from-[#2b2f36] to-[#1c1e22] text-white font-mono font-black text-lg sm:text-xl rounded shadow-[0_3px_0_#0f1012] active:translate-y-0.5 active:shadow-[0_1px_0_#0f1012] transition-transform flex items-center justify-center border-t border-white/10 disabled:opacity-50"
                 >
                   {num}
-                  {/* Ponto tátil em relevo no número 5 */}
                   {num === "5" && (
                     <span className="absolute bottom-1 w-1 h-1 rounded-full bg-slate-400" />
                   )}
@@ -401,7 +429,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
 
             {/* Linha de Botões de Ação: BRANCO, CORRIGE, CONFIRMA */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4 pt-3 border-t border-white/10 items-end">
-              {/* Botão BRANCO */}
               <button
                 type="button"
                 onClick={handleBranco}
@@ -411,7 +438,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
                 BRANCO
               </button>
 
-              {/* Botão CORRIGE */}
               <button
                 type="button"
                 onClick={handleCorrige}
@@ -421,7 +447,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
                 CORRIGE
               </button>
 
-              {/* Botão CONFIRMA (Maior e Verde) */}
               <button
                 type="button"
                 onClick={handleConfirma}

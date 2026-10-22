@@ -3,6 +3,7 @@ import { registerVote, getStats } from "@/lib/storage";
 import { CandidatoId } from "@/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Tenta registrar o voto
+    // Tenta registrar o voto persistentemente
     const result = await registerVote(voto, fingerprint);
 
     if (result.duplicate) {
@@ -39,11 +40,18 @@ export async function POST(req: NextRequest) {
 
     const currentStats = await getStats();
 
-    return NextResponse.json({
-      success: true,
-      message: "Voto computado com sucesso!",
-      stats: currentStats,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Voto computado com sucesso!",
+        stats: currentStats,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      }
+    );
   } catch (error) {
     console.error("Erro ao processar voto:", error);
     return NextResponse.json(
