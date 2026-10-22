@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { TimelineStats } from "@/types";
 
 interface LinhaDoTempoProps {
-  timeline: TimelineStats;
+  timeline: TimelineStats | null;
 }
 
 export function LinhaDoTempo({ timeline }: LinhaDoTempoProps) {
@@ -13,6 +13,16 @@ export function LinhaDoTempo({ timeline }: LinhaDoTempoProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const formatNumber = (num: number) => num.toLocaleString("pt-BR");
+
+  if (!timeline) {
+    return (
+      <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 mb-6" role="status" aria-live="polite" aria-busy="true">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">Linha do tempo</h3>
+        <p className="text-sm text-slate-500 mt-2 animate-pulse">Carregando picos e histórico de votos...</p>
+        <div className="mt-4 h-40 rounded-lg bg-slate-100 animate-pulse" />
+      </div>
+    );
+  }
 
   const horas = timeline.historicoHoras;
   const maxVotos = Math.max(...horas.map((h) => Math.max(h.votos22, h.votos13)), 800000);
