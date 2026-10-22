@@ -5,15 +5,15 @@ import Image from "next/image";
 import { VotoStats } from "@/types";
 
 interface PlacarAoVivoProps {
-  stats: VotoStats;
+  stats: VotoStats | null;
 }
 
 export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
   const formatNumber = (num: number) => num.toLocaleString("pt-BR");
 
-  const hasValidos = stats.validos > 0;
-  const bar22Width = hasValidos ? stats.pct22Validos : 50;
-  const bar13Width = hasValidos ? stats.pct13Validos : 50;
+  const hasValidos = Boolean(stats && stats.validos > 0);
+  const bar22Width = hasValidos ? stats!.pct22Validos : 50;
+  const bar13Width = hasValidos ? stats!.pct13Validos : 50;
 
   return (
     <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -25,19 +25,35 @@ export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
             APURAÇÃO • AO VIVO
           </h2>
         </div>
-        <div className="text-right">
+        <div className="text-right" aria-live="polite" aria-busy={!stats}>
+          {stats ? (
+            <>
           <span className="font-mono font-bold text-sm sm:text-base tracking-tight">
             {formatNumber(stats.total)}
           </span>
           <span className="text-[11px] text-slate-300 ml-1">votos computados</span>
+            </>
+          ) : (
+            <span className="text-xs sm:text-sm font-semibold text-slate-200 animate-pulse">
+              Carregando votos computados...
+            </span>
+          )}
         </div>
       </div>
 
       {/* Indicador de votos recentes */}
       <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-1.5 flex items-center gap-1.5 text-xs text-emerald-800 font-medium">
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-        <span className="font-semibold">{formatNumber(stats.ultimos60s)}</span>
-        <span>votos nos últimos 60 segundos</span>
+        {stats ? (
+          <>
+            <span className="font-semibold">{formatNumber(stats.ultimos60s)}</span>
+            <span>votos nos últimos 60 segundos</span>
+          </>
+        ) : (
+          <span className="animate-pulse" aria-live="polite" aria-busy="true">
+            Carregando votos recentes...
+          </span>
+        )}
       </div>
 
       {/* Confronto Direto dos Candidatos */}
@@ -65,7 +81,7 @@ export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
                 Flávio Bolsonaro
               </h3>
               <div className="text-2xl sm:text-4xl font-extrabold text-[#1d4ed8] mt-1 tracking-tight">
-                {hasValidos ? `${stats.pct22Validos.toFixed(1).replace(".", ",")}%` : "0,0%"}
+                {stats ? (hasValidos ? `${stats.pct22Validos.toFixed(1).replace(".", ",")}%` : "0,0%") : "Carregando…"}
               </div>
             </div>
           </div>
@@ -83,7 +99,7 @@ export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
                 Lula
               </h3>
               <div className="text-2xl sm:text-4xl font-extrabold text-[#dc2626] mt-1 tracking-tight">
-                {hasValidos ? `${stats.pct13Validos.toFixed(1).replace(".", ",")}%` : "0,0%"}
+                {stats ? (hasValidos ? `${stats.pct13Validos.toFixed(1).replace(".", ",")}%` : "0,0%") : "Carregando…"}
               </div>
             </div>
             <div className="relative w-14 h-16 sm:w-16 sm:h-20 rounded border border-slate-300 overflow-hidden shrink-0 bg-slate-100 shadow-sm">
@@ -100,17 +116,23 @@ export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
 
         {/* Barra de Progresso Dividida */}
         <div className="mt-4">
-          <div className="w-full h-3 sm:h-4 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
-            <div
-              className={`${hasValidos ? "bg-[#1d4ed8]" : "bg-slate-300"} h-full transition-all duration-700 ease-out`}
-              style={{ width: `${bar22Width}%` }}
-              title={`Flávio Bolsonaro: ${hasValidos ? stats.pct22Validos : 0}%`}
-            />
-            <div
-              className={`${hasValidos ? "bg-[#dc2626]" : "bg-slate-300"} h-full transition-all duration-700 ease-out`}
-              style={{ width: `${bar13Width}%` }}
-              title={`Lula: ${hasValidos ? stats.pct13Validos : 0}%`}
-            />
+          <div className="w-full h-3 sm:h-4 bg-slate-200 rounded-full overflow-hidden flex shadow-inner" aria-busy={!stats}>
+            {stats ? (
+              <>
+                <div
+                  className={`${hasValidos ? "bg-[#1d4ed8]" : "bg-slate-300"} h-full transition-all duration-700 ease-out`}
+                  style={{ width: `${bar22Width}%` }}
+                  title={`Flávio Bolsonaro: ${hasValidos ? stats.pct22Validos : 0}%`}
+                />
+                <div
+                  className={`${hasValidos ? "bg-[#dc2626]" : "bg-slate-300"} h-full transition-all duration-700 ease-out`}
+                  style={{ width: `${bar13Width}%` }}
+                  title={`Lula: ${hasValidos ? stats.pct13Validos : 0}%`}
+                />
+              </>
+            ) : (
+              <div className="w-full h-full bg-slate-300 animate-pulse" />
+            )}
           </div>
           <p className="text-[11px] text-center text-slate-500 mt-2 font-medium">
             Percentual de votos válidos, sem brancos e nulos, como o TSE calcula o resultado.

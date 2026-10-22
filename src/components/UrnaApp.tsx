@@ -11,15 +11,13 @@ import { Footer } from "@/components/Footer";
 import { VotoStats, TimelineStats } from "@/types";
 
 interface UrnaAppProps {
-  initialStats: VotoStats;
-  initialTimeline: TimelineStats;
   siteUrl: string;
   pixKey: string;
 }
 
-export function UrnaApp({ initialStats, initialTimeline, siteUrl, pixKey }: UrnaAppProps) {
-  const [stats, setStats] = useState<VotoStats>(initialStats);
-  const [timeline, setTimeline] = useState<TimelineStats>(initialTimeline);
+export function UrnaApp({ siteUrl, pixKey }: UrnaAppProps) {
+  const [stats, setStats] = useState<VotoStats | null>(null);
+  const [timeline, setTimeline] = useState<TimelineStats | null>(null);
 
   // Polling automático sem cache a cada 10 segundos
   useEffect(() => {
@@ -28,21 +26,22 @@ export function UrnaApp({ initialStats, initialTimeline, siteUrl, pixKey }: Urna
         const res = await fetch(`/api/stats?t=${Date.now()}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
-          if (data.stats) {
+          if (data.success && data.stats && data.timeline) {
             setStats((prev) => {
-              if (data.stats.total >= prev.total) {
+              if (!prev || data.stats.total >= prev.total) {
                 return data.stats;
               }
               return prev;
             });
+            setTimeline(data.timeline);
           }
-          if (data.timeline) setTimeline(data.timeline);
         }
       } catch (err) {
         console.error("Erro ao atualizar estatísticas:", err);
       }
     };
 
+    void fetchLatest();
     const interval = setInterval(fetchLatest, 10000);
     return () => clearInterval(interval);
   }, []);

@@ -4,13 +4,13 @@ import React from "react";
 import { VotoStats } from "@/types";
 
 interface TodosVotosProps {
-  stats: VotoStats;
+  stats: VotoStats | null;
 }
 
 export function TodosVotos({ stats }: TodosVotosProps) {
   const formatNumber = (num: number) => num.toLocaleString("pt-BR");
 
-  const rows = [
+  const rows = stats ? [
     {
       badge: "22",
       badgeBg: "bg-[#1d4ed8]",
@@ -51,7 +51,7 @@ export function TodosVotos({ stats }: TodosVotosProps) {
       votos: stats.nulos,
       barBg: "bg-[#475569]",
     },
-  ];
+  ] : [];
 
   return (
     <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
@@ -59,6 +59,11 @@ export function TodosVotos({ stats }: TodosVotosProps) {
         TODOS OS VOTOS
       </h3>
 
+      {!stats ? (
+        <div className="py-6 text-center text-sm font-semibold text-slate-500 animate-pulse" role="status" aria-live="polite" aria-busy="true">
+          Carregando votos computados...
+        </div>
+      ) : (
       <div className="space-y-4">
         {rows.map((row) => (
           <div key={row.nome} className="flex flex-col gap-1.5">
@@ -97,6 +102,7 @@ export function TodosVotos({ stats }: TodosVotosProps) {
           </div>
         ))}
       </div>
+      )}
 
       {/* Avisos e Rodapé da Seção */}
       <div className="mt-5 pt-3 border-t border-slate-100 space-y-1 text-[11px] text-slate-500">
