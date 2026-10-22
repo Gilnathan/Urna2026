@@ -16,7 +16,7 @@ export interface VotoStats {
   candidato13: number;
   brancos: number;
   nulos: number;
-  ultimos5min: number;
+  ultimos60s: number;
   pct22Validos: number;
   pct13Validos: number;
   pct22Total: number;
@@ -45,7 +45,6 @@ export interface TimelineStats {
 
 export interface VotePayload {
   voto: CandidatoId;
-  fingerprint: string;
 }
 
 export interface VoteResult {

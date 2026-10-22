@@ -63,17 +63,17 @@ export async function getStats(): Promise<VotoStats> {
       COALESCE(COUNT(*) FILTER (WHERE candidato = '13'), 0)::int AS v13,
       COALESCE(COUNT(*) FILTER (WHERE candidato = 'BRANCO'), 0)::int AS brancos,
       COALESCE(COUNT(*) FILTER (WHERE candidato = 'NULO'), 0)::int AS nulos,
-      COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '5 minutes'), 0)::int AS ultimos5min,
+      COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '60 seconds'), 0)::int AS ultimos60s,
       COALESCE(COUNT(*), 0)::int AS total
     FROM votos;
   `;
 
-  const row = rows[0] || { v22: 0, v13: 0, brancos: 0, nulos: 0, ultimos5min: 0, total: 0 };
+  const row = rows[0] || { v22: 0, v13: 0, brancos: 0, nulos: 0, ultimos60s: 0, total: 0 };
   const v22 = Number(row.v22 || 0);
   const v13 = Number(row.v13 || 0);
   const brancos = Number(row.brancos || 0);
   const nulos = Number(row.nulos || 0);
-  const ultimos5min = Number(row.ultimos5min || 0);
+  const ultimos60s = Number(row.ultimos60s || 0);
   const total = Number(row.total || 0);
 
   const validos = v22 + v13;
@@ -93,7 +93,7 @@ export async function getStats(): Promise<VotoStats> {
     candidato13: v13,
     brancos,
     nulos,
-    ultimos5min,
+    ultimos60s,
     pct22Validos: Number(pct22Validos.toFixed(1)),
     pct13Validos: Number(pct13Validos.toFixed(1)),
     pct22Total: Number(pct22Total.toFixed(1)),
@@ -170,9 +170,4 @@ export async function getTimelineStats(): Promise<TimelineStats> {
     horasVencidas13: vitorias13,
     historicoHoras: horas,
   };
-}
-
-export async function resetDatabase(): Promise<void> {
-  await ensureTableExists();
-  await sql`TRUNCATE TABLE votos RESTART IDENTITY;`;
 }

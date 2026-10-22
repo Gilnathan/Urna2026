@@ -36,8 +36,8 @@ export function PlacarAoVivo({ stats }: PlacarAoVivoProps) {
       {/* Indicador de votos recentes */}
       <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-1.5 flex items-center gap-1.5 text-xs text-emerald-800 font-medium">
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-        <span className="font-semibold">{formatNumber(stats.ultimos5min)}</span>
-        <span>votos nos últimos 5 minutos</span>
+        <span className="font-semibold">{formatNumber(stats.ultimos60s)}</span>
+        <span>votos nos últimos 60 segundos</span>
       </div>
 
       {/* Confronto Direto dos Candidatos */}

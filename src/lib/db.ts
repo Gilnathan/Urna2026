@@ -1,8 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 
-export const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_SP5Jql8HvrCh@ep-misty-meadow-b5cgcbxc-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
+if (!DATABASE_URL) {
+  throw new Error("Configure DATABASE_URL (ou POSTGRES_URL) para habilitar a votação.");
+}
 
 export const sql = neon(DATABASE_URL);
 
@@ -24,5 +26,6 @@ export async function ensureTableExists() {
     tableInitialized = true;
   } catch (err) {
     console.error("Erro ao inicializar tabela votos:", err);
+    throw err;
   }
 }
