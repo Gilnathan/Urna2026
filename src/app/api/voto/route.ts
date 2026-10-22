@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerVote, getStats } from "@/lib/storage";
 import { CandidatoId } from "@/types";
+import { createHash } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -8,7 +9,7 @@ export const revalidate = 0;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { voto, fingerprint } = body as { voto: CandidatoId; fingerprint: string };
+    const { voto } = body as { voto: CandidatoId };
 
     if (!voto || !["22", "13", "BRANCO", "NULO"].includes(voto)) {
       return NextResponse.json(
@@ -17,22 +18,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!fingerprint || typeof fingerprint !== "string" || fingerprint.length < 5) {
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const ip = req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("x-real-ip")?.trim()
+      || forwardedFor?.split(",")[0]?.trim();
+
+    if (!ip) {
       return NextResponse.json(
-        { success: false, message: "Identificador de dispositivo ausente." },
-        { status: 400 }
+        { success: false, message: "Não foi possível identificar a conexão para registrar o voto." },
+        { status: 503 }
       );
     }
 
-    // Tenta registrar o voto persistentemente
-    const result = await registerVote(voto, fingerprint);
+    // O IP é resumido antes de ser persistido; o índice UNIQUE existente impede votos simultâneos duplicados.
+    const voterKey = createHash("sha256").update(ip).digest("hex");
+    const result = await registerVote(voto, voterKey);
 
     if (result.duplicate) {
       return NextResponse.json(
         {
           success: false,
           alreadyVoted: true,
-          message: "Este dispositivo já computou um voto. Cada eleitor pode votar apenas uma vez.",
+          message: "Esta conexão já registrou um voto. Cada IP pode votar apenas uma vez.",
         },
         { status: 409 }
       );

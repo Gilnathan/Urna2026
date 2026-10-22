@@ -5,7 +5,6 @@ import Image from "next/image";
 import confetti from "canvas-confetti";
 import { CANDIDATOS } from "@/lib/candidates";
 import { playKeyBeep, playCorrigeBeep, playUrnaConfirmationSound } from "@/lib/audio";
-import { getDeviceFingerprint, checkHasVotedLocally, recordLocalVote } from "@/lib/fingerprint";
 import { CandidatoId, VotoStats } from "@/types";
 
 interface UrnaProps {
@@ -19,30 +18,6 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
   const [urnaPhase, setUrnaPhase] = useState<"IDLE" | "GRAVANDO" | "FIM">("IDLE");
   const [hasAlreadyVoted, setHasAlreadyVoted] = useState<boolean>(false);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
-
-  // Verifica se o dispositivo já votou anteriormente
-  useEffect(() => {
-    if (checkHasVotedLocally()) {
-      setHasAlreadyVoted(true);
-    }
-  }, []);
-
-  const clearLocalVote = () => {
-    try {
-      localStorage.removeItem("urna_2026_voted");
-      localStorage.removeItem("urna_2026_voto_escolha");
-      localStorage.removeItem("urna_2026_voto_data");
-      localStorage.removeItem("urna_2026_fp");
-      document.cookie = "urna_voted_token=; path=/; max-age=0";
-      setHasAlreadyVoted(false);
-      setUrnaPhase("IDLE");
-      setDigits("");
-      setIsBranco(false);
-      setNoticeMessage(null);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   // Candidato ativo com base nos dígitos
   const candidatoAtivo = digits.length === 2 ? CANDIDATOS[digits] : null;
@@ -109,29 +84,29 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
     setUrnaPhase("GRAVANDO");
 
     try {
-      const fingerprint = await getDeviceFingerprint();
-
       const response = await fetch("/api/voto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ voto: votoTipo, fingerprint }),
+        body: JSON.stringify({ voto: votoTipo }),
       });
 
       const data = await response.json();
 
-      if (data.alreadyVoted) {
+      if (response.status === 409 && data.alreadyVoted) {
         setHasAlreadyVoted(true);
-        setNoticeMessage("Este aparelho já computou um voto. Cada eleitor vota apenas 1 vez.");
+        setNoticeMessage("Este IP já registrou um voto. Cada IP pode votar apenas uma vez.");
         setUrnaPhase("IDLE");
-        setIsSubmitting(false);
         return;
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "O voto não pôde ser gravado. Tente novamente.");
       }
 
       // Toca som clássico do TSE e avança para a tela "FIM"
       playUrnaConfirmationSound();
       setUrnaPhase("FIM");
-      recordLocalVote(votoTipo, fingerprint);
       setHasAlreadyVoted(true);
 
       // Efeito de confete
@@ -147,10 +122,8 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
       }
     } catch (err) {
       console.error("Erro ao registrar voto:", err);
-      playUrnaConfirmationSound();
-      setUrnaPhase("FIM");
-      recordLocalVote(votoTipo, "fallback_fp");
-      setHasAlreadyVoted(true);
+      setNoticeMessage(err instanceof Error ? err.message : "Falha ao gravar o voto. Tente novamente.");
+      setUrnaPhase("IDLE");
     } finally {
       setIsSubmitting(false);
     }
@@ -183,34 +156,9 @@ export function Urna({ onVoteCompleted }: UrnaProps) {
   return (
     <div className="w-full mb-8">
       {/* Alerta caso o usuário já tenha votado */}
-      {hasAlreadyVoted && urnaPhase !== "FIM" && (
-        <div className="mb-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-base">✅</span>
-            <span>
-              <strong>Voto já computado neste dispositivo!</strong> Para manter a precisão da simulação, votos repetidos são bloqueados.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={clearLocalVote}
-            className="text-[11px] bg-amber-200/70 hover:bg-amber-300 text-amber-950 px-2 py-1 rounded font-bold transition-colors"
-          >
-            Liberar para novo teste
-          </button>
-        </div>
-      )}
-
       {noticeMessage && (
         <div className="mb-4 bg-red-50 border border-red-300 text-red-800 rounded-lg p-3 text-xs sm:text-sm flex items-center justify-between">
           <span>{noticeMessage}</span>
-          <button
-            type="button"
-            onClick={clearLocalVote}
-            className="text-xs font-bold underline ml-2"
-          >
-            Limpar trava
-          </button>
         </div>
       )}
 

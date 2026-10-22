@@ -101,7 +101,7 @@ export function TodosVotos({ stats }: TodosVotosProps) {
       {/* Avisos e Rodapé da Seção */}
       <div className="mt-5 pt-3 border-t border-slate-100 space-y-1 text-[11px] text-slate-500">
         <p>
-          Placar ao vivo, atualizado a cada 30 segundos. <strong>Um voto por pessoa.</strong> Para evitar votos repetidos, guardamos só códigos anônimos do navegador e do aparelho, sem ligação com o voto.
+          Placar ao vivo, atualizado a cada 10 segundos. <strong>Um voto por IP.</strong> O IP é transformado em um código anônimo e salvo no banco para impedir votos repetidos.
         </p>
         <p className="text-slate-400">
           Brincadeira / interativa. Não é pesquisa eleitoral, não tem registro no TSE e não tem valor estatístico.
