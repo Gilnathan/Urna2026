@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Share2 } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 
 interface ApoiePixProps {
   pixKey?: string;
 }
 
-export const SITE_URL = "https://urna2026.vercel.app/";
+export const PIX_CHAVE_APOIO = "23d48a5d-4dfc-4760-8177-400812e51497";
 
 export function ApoiePix({ pixKey }: ApoiePixProps) {
-  const chaveExibida = pixKey || SITE_URL;
+  const chaveExibida = pixKey || PIX_CHAVE_APOIO;
   const [copiedKey, setCopiedKey] = useState(false);
 
   const handleCopy = (text: string) => {
@@ -23,10 +23,10 @@ export function ApoiePix({ pixKey }: ApoiePixProps) {
     <div className="w-full bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 mb-6">
       <div className="mb-4">
         <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-          Apoie e Compartilhe a Urna 2026
+          Apoie a Urna 2026
         </h3>
         <p className="text-xs text-slate-600 mt-1">
-          O site é gratuito, anônimo e sem cadastro. Compartilhe o link com seus amigos e grupos para acompanhar a apuração.
+          O site é gratuito e sem cadastro. Se quiser ajudar a manter o projeto no ar, qualquer valor ajuda.
         </p>
       </div>
 
@@ -34,14 +34,13 @@ export function ApoiePix({ pixKey }: ApoiePixProps) {
         {/* Card Principal */}
         <div className="bg-[#f0f9f8] border border-[#a2dfd9] rounded-lg p-3.5 sm:p-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="bg-[#1f8c85] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
-              <Share2 className="w-3 h-3" />
-              LINK OFICIAL
+            <span className="bg-[#1f8c85] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+              PIX
             </span>
-            <span className="text-xs font-bold text-slate-800">Link do Simulador</span>
+            <span className="text-xs font-bold text-slate-800">Chave Pix de apoio</span>
           </div>
 
-          {/* Input com o Link e Botão Copiar */}
+          {/* Input com a chave Pix e botão copiar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <input
               type="text"
@@ -62,7 +61,7 @@ export function ApoiePix({ pixKey }: ApoiePixProps) {
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Copiar link</span>
+                  <span>Copiar chave Pix</span>
                 </>
               )}
             </button>
