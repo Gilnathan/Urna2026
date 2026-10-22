@@ -4,10 +4,10 @@ import React, { useState, useEffect } from "react";
 import { Copy, Check, Share2 } from "lucide-react";
 
 interface HeaderProps {
-  pixKey: string;
+  siteUrl: string;
 }
 
-export function Header({ pixKey }: HeaderProps) {
+export function Header({ siteUrl }: HeaderProps) {
   const [copied, setCopied] = useState(false);
 
   // Contadores regressivos reais
@@ -43,7 +43,7 @@ export function Header({ pixKey }: HeaderProps) {
   }, []);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(pixKey);
+    navigator.clipboard.writeText(siteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -172,7 +172,7 @@ export function Header({ pixKey }: HeaderProps) {
             <input
               type="text"
               readOnly
-              value={pixKey}
+              value={siteUrl}
               className="bg-white border border-slate-300 rounded px-2.5 py-1 text-slate-700 font-mono text-[11px] w-full sm:w-64 select-all focus:outline-none"
             />
             <button

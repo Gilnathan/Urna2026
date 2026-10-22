@@ -13,10 +13,11 @@ import { VotoStats, TimelineStats } from "@/types";
 interface UrnaAppProps {
   initialStats: VotoStats;
   initialTimeline: TimelineStats;
+  siteUrl: string;
   pixKey: string;
 }
 
-export function UrnaApp({ initialStats, initialTimeline, pixKey }: UrnaAppProps) {
+export function UrnaApp({ initialStats, initialTimeline, siteUrl, pixKey }: UrnaAppProps) {
   const [stats, setStats] = useState<VotoStats>(initialStats);
   const [timeline, setTimeline] = useState<TimelineStats>(initialTimeline);
 
@@ -53,7 +54,7 @@ export function UrnaApp({ initialStats, initialTimeline, pixKey }: UrnaAppProps)
   return (
     <div className="flex-1 flex flex-col justify-between">
       <div>
-        <Header pixKey={pixKey} />
+        <Header siteUrl={siteUrl} />
 
         <main className="max-w-4xl mx-auto px-3 sm:px-6 py-5">
           {/* 1. Placar Ao Vivo (Header de Apuração) */}
